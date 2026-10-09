@@ -1,6 +1,7 @@
 package com.example.inventory.service;
 
 import com.example.inventory.dto.ProductResponse;
+import com.example.inventory.dto.ProductSearchCriteria;
 import com.example.inventory.model.Product;
 import com.example.inventory.repository.ProductRepository;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,12 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
         return mapToResponse(product);
+    }
+
+    public List<ProductResponse> searchProducts(ProductSearchCriteria criteria) {
+        return productRepository.searchProducts(criteria).stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private ProductResponse mapToResponse(Product product) {
