@@ -7,6 +7,8 @@ import com.example.inventory.model.*;
 import com.example.inventory.repository.CustomerRepository;
 import com.example.inventory.repository.OrderRepository;
 import com.example.inventory.repository.ProductRepository;
+import com.example.inventory.service.pricing.PricingBreakdown;
+import com.example.inventory.service.pricing.PricingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +21,16 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
+    private final PricingService pricingService;
 
     public OrderService(OrderRepository orderRepository,
                         CustomerRepository customerRepository,
-                        ProductRepository productRepository) {
+                        ProductRepository productRepository,
+                        PricingService pricingService) {
         this.orderRepository = orderRepository;
         this.customerRepository = customerRepository;
         this.productRepository = productRepository;
+        this.pricingService = pricingService;
     }
 
     @Transactional
@@ -35,8 +40,6 @@ public class OrderService {
 
         String orderNumber = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         Order order = new Order(orderNumber, customer, OrderStatus.CONFIRMED);
-
-        BigDecimal total = BigDecimal.ZERO;
 
         for (OrderItemRequest itemRequest : request.items()) {
             Product product = productRepository.findById(itemRequest.productId())
@@ -51,14 +54,12 @@ public class OrderService {
 
             OrderItem orderItem = new OrderItem(product, itemRequest.quantity(), product.getPrice());
             order.addItem(orderItem);
-
-            BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
-            total = total.add(lineTotal);
         }
 
-        order.setTotalAmount(total);
-        Order savedOrder = orderRepository.save(order);
+        PricingBreakdown breakdown = pricingService.calculateOrderPrice(order.getItems());
+        order.setTotalAmount(pricingService.toBigDecimal(breakdown.getFinalTotal()));
 
+        Order savedOrder = orderRepository.save(order);
         return mapToResponse(savedOrder);
     }
 
